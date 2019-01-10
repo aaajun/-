@@ -1,2 +1,113 @@
 # -
-爬取影院后台，查询是否售票，如已经售票，返回场次信息，并发送微信
+# 爬取影院后台，查询是否售票，如已经售票，返回场次信息，并发送微信
+# 用python实现。初始代码如下
+
+import requests
+import http.cookiejar as cookielib
+from bs4 import BeautifulSoup
+import itchat
+import time
+import random
+
+data_time = time.strftime("%Y-%m-%d", time.localtime())
+url = 'http://192.168.16.216:9999/CinemaManager/tic/tic_featurectrl?querydate=%s&hallno=&type=&odby=1&queryall=' %(data_time)
+def isLogin():
+    # 通过查看用户个人信息来判断是否已经登录
+    login_code = session.get(url, headers=headers, allow_redirects=False).status_code
+    if login_code == 200:
+        return True
+    else:
+        return False
+def login(secret, accout):
+    # 用户名和密码登录
+    post_url = 'http://192.168.16.216:9999/CinemaManager/login'
+    postdata = {
+        'usercode': secret,
+        'password': accout,
+    }
+    try:
+        # 不需要验证码直接登录
+        login_page = session.post(post_url, data=postdata, headers=headers)
+        login_code = login_page.text
+        print(login_page.status_code)
+        # print(login_code)
+    except:
+        pass
+    session.cookies.save(ignore_discard=True, ignore_expires=True)
+def content():
+    page = session.get(url, headers=headers)
+    soup = BeautifulSoup(page.text, 'lxml')
+    all_date = soup.find('tbody')
+    section_date = all_date.find_all('tr')
+    date_list = []
+    for i in range(0, len(section_date)):
+        data1 = section_date[i].find_all('td')
+        if data1[2].contents[0] == '一号厅':
+            n = 101
+        elif data1[2].contents[0] == '三号厅':
+            n = 84
+        elif data1[2].contents[0] == '四号厅':
+            n = 82
+        elif data1[2].contents[0] == '五号厅':
+            n = 87
+        else:
+            n = 165
+        rens = n - int(data1[17].contents[0])
+        # print(rens)
+        if rens > 0:
+            date_list.append(
+                data1[4].contents[0] +
+                data1[2].contents[0] +
+                data1[6].contents[0] +
+                '已售:' +
+                str(rens)
+            )
+    print(date_list)
+    return date_list
+def weixin(neirong):
+    itchat.auto_login()
+    users = itchat.search_chatrooms("影城内部群")
+    userName = users[0]['UserName']
+    itchat.send(' '.join(neirong), toUserName=userName)
+    print('发送成功')
+
+
+if __name__ == '__main__':
+    kaiguan = True
+    itchat.auto_login()
+    some_content = []
+    while kaiguan:
+        # 判断当前时间是否执行
+        if time.strftime("%H:%M", time.localtime()) >= '20:40':
+            kaiguan = False
+
+        session = requests.session()
+        session.cookies = cookielib.LWPCookieJar(filename='cookies')
+        try:
+            session.cookies.load('cookies', ignore_discard=True, ignore_expires=True)
+        except:
+            print("Cookie 未能加载")
+        headers = {
+            "Connection": "keep-alive",
+            "Host": "192.168.16.216:9999",
+            "Origin": "http://192.168.16.216:9999/CinemaManager/",
+            "Referer": "http://192.168.16.216:9999/CinemaManager/login",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:63.0) Gecko/20100101 Firefox/63.0"
+        }
+        if isLogin():
+            print('您已经登录')
+        else:
+            login('张三', '111111')
+            print('用户登录成功，cookies已经保存')
+        sleep_time = random.randint(40, 120) + random.random()
+        all_content = content()
+
+        for i in all_content:
+            if i in some_content:
+                print('已经发送过', i)
+            else:
+                weixin(i)
+                some_content.append(i)
+                print(some_content)
+        print('开始休息：', sleep_time, '秒')
+        time.sleep(sleep_time)
