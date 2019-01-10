@@ -1,6 +1,7 @@
 # -
-# 爬取影院后台，查询是否售票，如已经售票，返回场次信息，并发送微信
-# 用python实现。初始代码如下
+爬取影院后台，查询是否售票，如已经售票，返回场次信息，并发送微信
+用python实现。初始代码如下
+
 
 import requests
 import http.cookiejar as cookielib
